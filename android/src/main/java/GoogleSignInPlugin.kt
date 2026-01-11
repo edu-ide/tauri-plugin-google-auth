@@ -154,22 +154,19 @@ class GoogleSignInPlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         
-        scope.launch {
-            try {
-                val tokenResponse = exchangeAuthCodeForTokens(
-                    authCode,
-                    clientId,
-                    clientSecret,
-                    redirectUri
-                )
-                
-                val tokenObject = createTokenResponse(tokenResponse, grantedScopes?.toList())
-                invoke.resolve(tokenObject)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to exchange auth code", e)
-                invoke.reject("Failed to complete sign-in: ${e.message}")
-            }
+        // Patch: Return authCode directly to JS and let JS/Backend handle it.
+        // This avoids "client_secret is missing" error on device.
+        val response = JSObject().apply {
+            put("authCode", authCode)
+            put("idToken", null) // We don't have it yet, backend will get it
+            put("accessToken", null)
+            put("refreshToken", null)
+            put("clientId", clientId)
+            put("grantedScopes", JSArray().apply {
+                grantedScopes?.forEach { put(it) }
+            })
         }
+        invoke.resolve(response)
     }
     
     @Command
